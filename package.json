@@ -1,0 +1,14 @@
+{
+  "name": "dom-reactive",
+  "version": "1.0.0",
+  "description": "Reactivity in the DOM.",
+  "main": "src/index.js",
+  "scripts": {
+    "build": "tsc --watch"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^4.9.5"
+  }
+}
