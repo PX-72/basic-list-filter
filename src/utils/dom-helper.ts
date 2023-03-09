@@ -60,3 +60,15 @@ export const button = (text: string, onclick: () => void, style: string = '', cl
     eventCallback: () => onclick()
   })
 );
+
+export const textInput = (inputChangeCallback: (e: HTMLInputElement) => void, initValue: string = '', style: string = '', className = ''): HTMLInputElement => (
+  build<HTMLInputElement>('input', {
+    attributes: { type: 'text', value: initValue },
+    style: style,
+    className: className,
+    eventType: 'input',
+    eventCallback: inputChangeCallback,
+  })
+);
+
+
