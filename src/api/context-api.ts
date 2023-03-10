@@ -1,6 +1,7 @@
 import { words } from '../data/words.js';
 
 export type Context = {
+  id: number;
   name: string;
   description: string;
   accepted: boolean;
@@ -19,7 +20,8 @@ const delay = (time: number) => new Promise((resolve) => setTimeout(resolve, tim
 export const getContexts = async (numberOfContexts: number, time: number = 1000): Promise<Context[]> => {
   await delay(time);
 
-  return [...Array(numberOfContexts)].map(() => ({
+  return [...Array(numberOfContexts)].map((e: string, i: number) => ({
+    id: i,
     name: getRandomWord(),
     description: getWords(randomInt(3, 7)),
     accepted: getRandomBoolean(),

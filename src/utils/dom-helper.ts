@@ -70,5 +70,3 @@ export const textInput = (inputChangeCallback: (e: HTMLInputElement) => void, in
     eventCallback: inputChangeCallback,
   })
 );
-
-
