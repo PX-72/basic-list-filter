@@ -2,19 +2,17 @@ import { html, build, textInput } from './utils/dom-helper.js';
 import { getContexts, Context } from './api/context-api.js';
 
 const DATA_ID_PROPERTY = 'data-id';
-const DEBOUNCE_INTERVAL = 200;
-const DATA_SIZE = 30000;
+const DEBOUNCE_INTERVAL = 300;
+const DATA_SIZE = 10000;
 
 const UL_STYLE = `
   margin: 20px 0 0 0;
   padding: 10px 0 0 0;
   border-top: 1px solid gray;
   list-style-type: none;
-  height: 600px; 
-  
+  min-height: 300px; 
+  max-height: 1100px; 
   overflow-y: auto;
-  scrollbar-color: rebeccapurple green;
-  scrollbar-width: thin;
 `;
 
 const LI_STYLE = `
@@ -63,13 +61,15 @@ const filter = (value: string, ul: HTMLElement): void => {
     );
   }
 
-  for (const li of ul.querySelectorAll('li')) {
-    if (mustShowAll || matchedIds.has(li.getAttribute(DATA_ID_PROPERTY))) {
-      li.style.display = 'block';
-    } else {
-      li.style.display = 'none';
+  requestAnimationFrame(() => {
+    for (const li of ul.querySelectorAll('li')) {
+      if (mustShowAll || matchedIds.has(li.getAttribute(DATA_ID_PROPERTY))) {
+        li.style.display = 'block';
+      } else {
+        li.style.display = 'none';
+      }
     }
-  }
+  });
 };
 
 const ul = build('ul', { style: UL_STYLE });
