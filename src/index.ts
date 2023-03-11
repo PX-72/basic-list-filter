@@ -2,16 +2,24 @@ import { html, build, textInput } from './utils/dom-helper.js';
 import { getContexts, Context } from './api/context-api.js';
 
 const DATA_ID_PROPERTY = 'data-id';
+const DEBOUNCE_INTERVAL = 200;
+const DATA_SIZE = 30000;
 
 const UL_STYLE = `
   margin: 20px 0 0 0;
   padding: 10px 0 0 0;
   border-top: 1px solid gray;
   list-style-type: none;
+  height: 600px; 
+  
+  overflow-y: auto;
+  scrollbar-color: rebeccapurple green;
+  scrollbar-width: thin;
 `;
 
 const LI_STYLE = `
   border-bottom: 1px solid #14213d;
+  display: block;
 `;
 
 const ITEM_CONTAINER = `
@@ -41,6 +49,8 @@ const INPUT_STYLE = `
   margin: 12px 0 0 20px;
 `;
 
+const data: Context[] = await getContexts(DATA_SIZE);
+
 const filter = (value: string, ul: HTMLElement): void => {
   const mustShowAll = value === undefined || value === '' || value.trim().length === 0;
   let matchedIds = new Set<string | null>();
@@ -55,21 +65,19 @@ const filter = (value: string, ul: HTMLElement): void => {
 
   for (const li of ul.querySelectorAll('li')) {
     if (mustShowAll || matchedIds.has(li.getAttribute(DATA_ID_PROPERTY))) {
-      if (li.style.display === 'none') li.style.display = 'block';
+      li.style.display = 'block';
     } else {
       li.style.display = 'none';
     }
   }
 };
 
-const data: Context[] = await getContexts(2000);
-
 const ul = build('ul', { style: UL_STYLE });
 
 let timeoutId: number = 0;
 const filterTextChanged = (element: HTMLInputElement) => {
   if (timeoutId) clearTimeout(timeoutId);
-  timeoutId = setTimeout(() => filter(element.value, ul), 200);
+  timeoutId = setTimeout(() => filter(element.value, ul), DEBOUNCE_INTERVAL);
 };
 
 const input = textInput(filterTextChanged, '', INPUT_STYLE);
