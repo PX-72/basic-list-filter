@@ -1,15 +1,20 @@
 export type HtmlElementBuilderOptions<T extends HTMLElement> = {
   text?: string;
   style?: string;
-  className?: string;
+  classNames?: string[];
   visible?: boolean;
   attributes?: object;
   eventType?: string;
   eventCallback?: (e: T) => void;
 };
 
+export type CssSelector = {
+  selectorName: string;
+  selectorBody: string;
+};
+
 export const build = <T extends HTMLElement>(type: string, options: HtmlElementBuilderOptions<T> = {}): T => {
-  const { text, style = '', className = '', visible = true, attributes = {}, eventType, eventCallback } = options;
+  const { text, style = '', classNames = [], visible = true, attributes = {}, eventType, eventCallback } = options;
 
   const element = document.createElement(type) as T;
   if (text) element.innerText = text;
@@ -22,6 +27,8 @@ export const build = <T extends HTMLElement>(type: string, options: HtmlElementB
   if (style) {
     element.setAttribute('style', style.replace(/\n/g, '').trim());
   }
+
+  classNames.forEach(c => element.setAttribute('class', c.replace(/^\./,'')));
 
   for (const [key, value] of Object.entries(attributes)) {
     element.setAttribute(key, value);
@@ -51,22 +58,37 @@ export const toggleVisibility = (elements: HTMLElement[] = [], visibleStyle = 'b
   });
 };
 
-export const button = (text: string, onclick: () => void, style: string = '', className = ''): HTMLButtonElement => (
+export const button = (text: string, onclick: () => void, style: string = '', classNames = []): HTMLButtonElement =>
   build<HTMLButtonElement>('button', {
     text: text,
     style: style,
-    className: className,
+    classNames: classNames,
     eventType: 'click',
     eventCallback: () => onclick()
-  })
-);
+  });
 
-export const textInput = (inputChangeCallback: (e: HTMLInputElement) => void, initValue: string = '', style: string = '', className = ''): HTMLInputElement => (
+export const textInput = (
+  inputChangeCallback: (e: HTMLInputElement) => void,
+  initValue: string = '',
+  style: string = '',
+  classNames = []
+): HTMLInputElement =>
   build<HTMLInputElement>('input', {
     attributes: { type: 'text', value: initValue },
     style: style,
-    className: className,
+    classNames: classNames,
     eventType: 'input',
-    eventCallback: inputChangeCallback,
-  })
-);
+    eventCallback: inputChangeCallback
+  });
+
+export const createCssSelector = (name: string, body: string): CssSelector => ({
+  selectorName: name,
+  selectorBody: body
+});
+
+export const appendGlobalStyles = (...selectors: CssSelector[]): void => {
+  if (selectors.length === 0) return;
+
+  const list = selectors.map((s) => ` ${s.selectorName} {${s.selectorBody}} `);
+  document.head.insertAdjacentHTML('beforeend', `<style>${list.join('\n\n')}</style>`);
+};

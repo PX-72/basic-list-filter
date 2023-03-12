@@ -1,49 +1,14 @@
-import { html, build, textInput } from './utils/dom-helper.js';
+import { html, build, appendGlobalStyles, createCssSelector, textInput } from './utils/dom-helper.js';
 import { getContexts, Context } from './api/context-api.js';
+import { calculateListVirtualisation } from './utils/list-virtualiser.js';
 
 const DATA_ID_PROPERTY = 'data-id';
 const DEBOUNCE_INTERVAL = 300;
 const DATA_SIZE = 10000;
 
 const ROW_HEIGHT = 30;
-const VIRTUALISED_CONTAINER_HEIGHT = 800;
-
-const UL_STYLE = `
-  margin: 20px 0 0 0;
-  padding: 0 0 0 0;
-  border-top: 1px solid gray;
-  list-style-type: none;
-  height: ${VIRTUALISED_CONTAINER_HEIGHT}px; 
-  overflow-y: auto;
-  position: relative;
-`;
-
-const HEIGHT_SETTER_STYLE = `
-  background-color: transparent !important;
-  height: ${DATA_SIZE * ROW_HEIGHT}px;
-`;
-
-const LI_STYLE = `
-  border-bottom: 1px solid #14213d;
-  display: none;
-  height: ${ROW_HEIGHT}px;
-  position: absolute;
-`;
-
-const ITEM_CONTAINER = `
-  didsplay: flex;
-  flex-direction: row;
-`;
-
-const ITEM = `
-  margin-left: 25px;
-`;
-
-const ID_ITEM = `
-  ${ITEM}
-  width: 30px;
-  display: inline-block;
-`;
+const BUFFER_SIZE = 10; // extra list items to render at the bottom of the list (outside)
+const LIST_ITEM_TAG = 'li';
 
 const INPUT_STYLE = `
   padding: 10px;
@@ -56,7 +21,58 @@ const INPUT_STYLE = `
   margin: 12px 0 0 20px;
 `;
 
+const UL_STYLE = `
+  margin: 20px 0 0 0;
+  padding: 0 0 0 0;
+  border-top: 1px solid gray;
+  list-style-type: none;
+  height: 800px; 
+  overflow-y: auto;
+  position: relative;
+`;
+
+const HEIGHT_SETTER_STYLE = `
+  background-color: transparent !important;
+  height: ${DATA_SIZE * ROW_HEIGHT}px;
+`;
+
+const LIST_ITEM_STYLE = `
+  border-top: 1px solid #14213d;
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: none; 
+  height: ${ROW_HEIGHT}px;
+`;
+
+const ITEM_CONTAINER_CSS = '.item-container';
+const ITEM_CONTAINER = `
+  didsplay: flex;
+  flex-direction: row;
+`;
+
+const ITEM_CSS = '.item';
+const ITEM = `
+  margin-left: 25px;
+  display: inline-block;
+  padding-top: 6px;
+`;
+
+const ID_ITEM_CSS = '.id-item';
+const ID_ITEM = `
+  ${ITEM}
+  width: 30px;
+  display: inline-block;
+`;
+
 const data: Context[] = await getContexts(DATA_SIZE);
+
+appendGlobalStyles(
+  createCssSelector(LIST_ITEM_TAG, LIST_ITEM_STYLE),
+  createCssSelector(ITEM_CONTAINER_CSS, ITEM_CONTAINER),
+  createCssSelector(ITEM_CSS, ITEM),
+  createCssSelector(ID_ITEM_CSS, ID_ITEM)
+);
 
 const filter = (value: string, ul: HTMLElement): void => {
   const mustShowAll = value === undefined || value === '' || value.trim().length === 0;
@@ -71,57 +87,54 @@ const filter = (value: string, ul: HTMLElement): void => {
   }
 
   requestAnimationFrame(() => {
-    for (const li of ul.querySelectorAll('li')) {
-      if (mustShowAll || matchedIds.has(li.getAttribute(DATA_ID_PROPERTY))) {
-        li.style.display = 'block';
+    for (const listItemElement of ul.querySelectorAll('li')) {
+      if (mustShowAll || matchedIds.has(listItemElement.getAttribute(DATA_ID_PROPERTY))) {
+        listItemElement.style.display = 'block';
       } else {
-        li.style.display = 'none';
+        listItemElement.style.display = 'none';
       }
     }
   });
 };
 
-let isThrottlig = false;
+// TODO: REPLACE WITH NEW FUNCTION FROM ./utils/list-virtualiser.js
+const calculateListElements = (parentElement: HTMLElement): void => {
+  const indexStart = Math.floor(parentElement.scrollTop / ROW_HEIGHT);
+  const indexEnd = Math.min(
+    Math.ceil(Math.ceil((parentElement.scrollTop + parseFloat(parentElement.style.height)) / ROW_HEIGHT - 1)) + BUFFER_SIZE,
+    DATA_SIZE - 1
+  );
 
-const onScroll = (element: HTMLUListElement): void => {
-  if (isThrottlig) return;
-
-  isThrottlig = true;
-
-  setTimeout(() => {
-    const rawStart = Math.floor(element.scrollTop / ROW_HEIGHT);
-    //const scrollTopOffset = Math.floor(rawStart / ROW_HEIGHT);
-    const indexStart = Math.floor(element.scrollTop / ROW_HEIGHT); // rawStart - scrollTopOffset;
-
-    const indexEnd = Math.min(
-      Math.ceil(Math.ceil((element.scrollTop + VIRTUALISED_CONTAINER_HEIGHT) / ROW_HEIGHT - 1)) + 10,
-      DATA_SIZE - 1
-    );
-
-    requestAnimationFrame(() => {
-      let currentIndex = indexStart;
-      for (const li of ul.querySelectorAll('li')) {
-        const index = Number(li.getAttribute(DATA_ID_PROPERTY));
-        if (index >= indexStart && index <= indexEnd) {
-          li.style.display = 'block';
-          li.style.top = `${currentIndex * ROW_HEIGHT}px`;
-          currentIndex++;
-        } else if (li.style.display !== 'none') {
-          li.style.display = 'none';
-        }
+  requestAnimationFrame(() => {
+    let currentIndex = indexStart;
+    for (const listItemElement of parentElement.querySelectorAll(LIST_ITEM_TAG)) {
+      const index = Number(listItemElement.getAttribute(DATA_ID_PROPERTY));
+      if (index >= indexStart && index <= indexEnd) {
+        listItemElement.style.display = 'block';
+        listItemElement.style.top = `${currentIndex * ROW_HEIGHT}px`;
+        currentIndex++;
+      } else if (listItemElement.style.display !== 'none') {
+        listItemElement.style.display = 'none';
       }
-    });
-
-    isThrottlig = false;
-  }, 0);
+    }
+  });
 };
 
+let isThrottling = false;
+const onScroll = (element: HTMLUListElement): void => {
+  if (isThrottling) return;
 
+  isThrottling = true;
+  setTimeout(() => {
+    calculateListElements(element);
+    isThrottling = false;
+  }, 0);
+};
 
 const heightSetterElement = build('div', { style: HEIGHT_SETTER_STYLE });
 const ul = build<HTMLUListElement>('ul', { style: UL_STYLE, eventType: 'scroll', eventCallback: onScroll });
 
-onScroll(ul);
+calculateListElements(ul);
 
 let timeoutId: number = 0;
 const filterTextChanged = (element: HTMLInputElement) => {
@@ -133,12 +146,12 @@ const input = textInput(filterTextChanged, '', INPUT_STYLE);
 
 const buildItem = (context: Context): HTMLElement =>
   html(
-    build('li', { style: LI_STYLE, attributes: { [DATA_ID_PROPERTY]: context.id.toString() } }),
+    build(LIST_ITEM_TAG, { attributes: { [DATA_ID_PROPERTY]: context.id.toString() }}),
     html(
-      build('div', { style: ITEM_CONTAINER }),
-      build('span', { text: context.id.toString(), style: ID_ITEM }),
-      build('span', { text: context.volume.toString(), style: ITEM }),
-      build('span', { text: context.description, style: ITEM })
+      build('div', { classNames: [ITEM_CONTAINER_CSS] }),
+      build('span', { text: context.id.toString(), classNames: [ID_ITEM_CSS] }),
+      build('span', { text: context.volume.toString(), classNames: [ITEM_CSS] }),
+      build('span', { text: context.description, classNames: [ITEM_CSS] })
     )
   );
 
