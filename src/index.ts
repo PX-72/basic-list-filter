@@ -5,25 +5,34 @@ const DATA_ID_PROPERTY = 'data-id';
 const DEBOUNCE_INTERVAL = 300;
 const DATA_SIZE = 10000;
 
+const ROW_HEIGHT = 30;
+const VIRTUALISED_CONTAINER_HEIGHT = 800;
+
 const UL_STYLE = `
   margin: 20px 0 0 0;
-  padding: 10px 0 0 0;
+  padding: 0 0 0 0;
   border-top: 1px solid gray;
   list-style-type: none;
-  min-height: 300px; 
-  max-height: 1100px; 
+  height: ${VIRTUALISED_CONTAINER_HEIGHT}px; 
   overflow-y: auto;
+  position: relative;
+`;
+
+const HEIGHT_SETTER_STYLE = `
+  background-color: transparent !important;
+  height: ${DATA_SIZE * ROW_HEIGHT}px;
 `;
 
 const LI_STYLE = `
   border-bottom: 1px solid #14213d;
-  display: block;
+  display: none;
+  height: ${ROW_HEIGHT}px;
+  position: absolute;
 `;
 
 const ITEM_CONTAINER = `
   didsplay: flex;
   flex-direction: row;
-  margin: 5px 0;
 `;
 
 const ITEM = `
@@ -72,7 +81,47 @@ const filter = (value: string, ul: HTMLElement): void => {
   });
 };
 
-const ul = build('ul', { style: UL_STYLE });
+let isThrottlig = false;
+
+const onScroll = (element: HTMLUListElement): void => {
+  if (isThrottlig) return;
+
+  isThrottlig = true;
+
+  setTimeout(() => {
+    const rawStart = Math.floor(element.scrollTop / ROW_HEIGHT);
+    //const scrollTopOffset = Math.floor(rawStart / ROW_HEIGHT);
+    const indexStart = Math.floor(element.scrollTop / ROW_HEIGHT); // rawStart - scrollTopOffset;
+
+    const indexEnd = Math.min(
+      Math.ceil(Math.ceil((element.scrollTop + VIRTUALISED_CONTAINER_HEIGHT) / ROW_HEIGHT - 1)) + 10,
+      DATA_SIZE - 1
+    );
+
+    requestAnimationFrame(() => {
+      let currentIndex = indexStart;
+      for (const li of ul.querySelectorAll('li')) {
+        const index = Number(li.getAttribute(DATA_ID_PROPERTY));
+        if (index >= indexStart && index <= indexEnd) {
+          li.style.display = 'block';
+          li.style.top = `${currentIndex * ROW_HEIGHT}px`;
+          currentIndex++;
+        } else if (li.style.display !== 'none') {
+          li.style.display = 'none';
+        }
+      }
+    });
+
+    isThrottlig = false;
+  }, 0);
+};
+
+
+
+const heightSetterElement = build('div', { style: HEIGHT_SETTER_STYLE });
+const ul = build<HTMLUListElement>('ul', { style: UL_STYLE, eventType: 'scroll', eventCallback: onScroll });
+
+onScroll(ul);
 
 let timeoutId: number = 0;
 const filterTextChanged = (element: HTMLInputElement) => {
@@ -93,7 +142,8 @@ const buildItem = (context: Context): HTMLElement =>
     )
   );
 
-const createList = (contexts: Context[]): HTMLElement => html(ul, ...data.map((d) => buildItem(d)));
+const createList = (contexts: Context[]): HTMLElement =>
+  html(ul, heightSetterElement, ...data.map((d) => buildItem(d)));
 
 html(document.querySelector<HTMLElement>('#app')!, input, createList(data));
 
