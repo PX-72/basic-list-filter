@@ -7,7 +7,6 @@ const DEBOUNCE_INTERVAL = 300;
 const DATA_SIZE = 10000;
 
 const ROW_HEIGHT = 30;
-const BUFFER_SIZE = 10; // extra list items to render at the bottom of the list (outside)
 const LIST_ITEM_TAG = 'li';
 
 const INPUT_STYLE = `
@@ -32,7 +31,7 @@ const UL_STYLE = `
 `;
 
 const HEIGHT_SETTER_STYLE = `
-  background-color: transparent !important;
+  background-color: transparent;
   height: ${DATA_SIZE * ROW_HEIGHT}px;
 `;
 
