@@ -97,36 +97,13 @@ const filter = (value: string, ul: HTMLElement): void => {
   });
 };
 
-// TODO: REPLACE WITH NEW FUNCTION FROM ./utils/list-virtualiser.js
-const calculateListElements = (parentElement: HTMLElement): void => {
-  const indexStart = Math.floor(parentElement.scrollTop / ROW_HEIGHT);
-  const indexEnd = Math.min(
-    Math.ceil(Math.ceil((parentElement.scrollTop + parseFloat(parentElement.style.height)) / ROW_HEIGHT - 1)) + BUFFER_SIZE,
-    DATA_SIZE - 1
-  );
-
-  requestAnimationFrame(() => {
-    let currentIndex = indexStart;
-    for (const listItemElement of parentElement.querySelectorAll(LIST_ITEM_TAG)) {
-      const index = Number(listItemElement.getAttribute(DATA_ID_PROPERTY));
-      if (index >= indexStart && index <= indexEnd) {
-        listItemElement.style.display = 'block';
-        listItemElement.style.top = `${currentIndex * ROW_HEIGHT}px`;
-        currentIndex++;
-      } else if (listItemElement.style.display !== 'none') {
-        listItemElement.style.display = 'none';
-      }
-    }
-  });
-};
-
 let isThrottling = false;
 const onScroll = (element: HTMLUListElement): void => {
   if (isThrottling) return;
 
   isThrottling = true;
   setTimeout(() => {
-    calculateListElements(element);
+    calculateListVirtualisation({listContainerElement: element, rowHeight: ROW_HEIGHT});
     isThrottling = false;
   }, 0);
 };
@@ -134,7 +111,7 @@ const onScroll = (element: HTMLUListElement): void => {
 const heightSetterElement = build('div', { style: HEIGHT_SETTER_STYLE });
 const ul = build<HTMLUListElement>('ul', { style: UL_STYLE, eventType: 'scroll', eventCallback: onScroll });
 
-calculateListElements(ul);
+calculateListVirtualisation({listContainerElement: ul, rowHeight: ROW_HEIGHT});
 
 let timeoutId: number = 0;
 const filterTextChanged = (element: HTMLInputElement) => {

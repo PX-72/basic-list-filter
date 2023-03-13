@@ -2,17 +2,17 @@ type HtmlElementTagType = keyof HTMLElementTagNameMap;
 
 export type VirtualisationOptions = {
   listContainerElement: HTMLElement;
-  rowHight?: number;
+  rowHeight?: number;
   listItemTag?: HtmlElementTagType;
   endOfListBufferSize?: number;
 };
 
 export const calculateListVirtualisation = (options: VirtualisationOptions): void => {
-  let { listContainerElement, rowHight = 0, listItemTag = 'li', endOfListBufferSize = 10 } = options;
-  
+  let { listContainerElement, rowHeight: rowHight = 0, listItemTag = 'li', endOfListBufferSize = 10 } = options;
+
   if (rowHight === 0) {
     const actualRowHeight = listContainerElement.querySelector(listItemTag)?.style.height;
-    if (actualRowHeight === undefined) throw Error('row hight could not be determined.')
+    if (actualRowHeight === undefined) throw Error('row hight could not be determined.');
     rowHight = parseFloat(actualRowHeight);
   }
 
@@ -20,7 +20,8 @@ export const calculateListVirtualisation = (options: VirtualisationOptions): voi
     const listItems = listContainerElement.querySelectorAll(listItemTag);
     const indexStart = Math.floor(listContainerElement.scrollTop / rowHight);
     const indexEnd = Math.min(
-      Math.ceil((listContainerElement.scrollTop + parseFloat(listContainerElement.style.height)) / rowHight - 1) + endOfListBufferSize,
+      Math.ceil((listContainerElement.scrollTop + parseFloat(listContainerElement.style.height)) / rowHight - 1) +
+        endOfListBufferSize,
       listItems.length - 1
     );
 
