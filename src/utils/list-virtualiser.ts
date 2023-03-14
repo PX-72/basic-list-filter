@@ -1,19 +1,19 @@
 type HtmlElementTagType = keyof HTMLElementTagNameMap;
 
 export type VirtualisationOptions = {
-  rowHeight?: number;
-  listItemTag?: HtmlElementTagType;
-  endOfListBufferSize?: number;
+  rowHeight: number;
+  listItemTag: HtmlElementTagType;
+  endOfListBufferSize: number;
 };
 
-const calculateListVirtualisation = (element: HTMLElement, options: Required<VirtualisationOptions>): void => {
-  let { rowHeight, listItemTag, endOfListBufferSize } = options;
+enum CssDisplay {
+  NONE = 'none',
+  BLOCK = 'block',
+  INLINE_BLOCK = 'inline-block'
+};
 
-  /* if (rowHeight === 0) {
-    const actualRowHeight = element.querySelector(listItemTag)?.style.height;
-    if (actualRowHeight === undefined) throw Error('row hight could not be determined.');
-    rowHeight = parseFloat(actualRowHeight);
-  } */
+const calculateListVirtualisation = (element: HTMLElement, options: VirtualisationOptions): void => {
+  let { rowHeight, listItemTag, endOfListBufferSize } = options;
 
   requestAnimationFrame(() => {
     const listItems = element.querySelectorAll(listItemTag);
@@ -41,37 +41,68 @@ const calculateListVirtualisation = (element: HTMLElement, options: Required<Vir
   });
 };
 
-let isThrottling = false;
-const onScroll = (element: HTMLUListElement): void => {
-  if (isThrottling) return;
+const isValidVirtualisationInput = (parentElement: HTMLElement, childElements: HTMLElement[]): Readonly<[boolean, boolean, string]> {
+  const valid = [true, false, ''] as const;
+  const invalid = (err: string) => [false, false, err] as const;
+  const invalidAndThrow = (err: string) => [false, true, err] as const;
 
-  isThrottling = true;
-  setTimeout(() => {
-    calculateListVirtualisation({listContainerElement: element, rowHeight: ROW_HEIGHT});
-    isThrottling = false;
-  }, 0);
-};
+  if (!parentElement) return invalidAndThrow('Parent element is null.');
+  const parentHeight = parentElement.style.height;
+  if (!parentHeight || parseFloat(parentHeight) <= 0) return invalidAndThrow('Parent element style must have height provided.');
+
+  if (!childElements) return invalidAndThrow('Child elements array is null.');
+  if (childElements.length === 0) return invalid('No child elements are provided.');
+  const childHeight = childElements[0].style.height;
+  if (!childHeight || parseFloat(childHeight) <= 0) return invalidAndThrow('Child elements style must have height provided.');
+
+  return valid;
+}
 
 //TODO: 
 // 1. completely move all list elements here 
 // 2. build list based on data source in main vitualise() function
 // 3. move isThrottling in the function body below
 
-export const virtualise = (element: HTMLElement, options: Omit<VirtualisationOptions, 'rowHeight'> = {}): 
-[virtualisedElement: HTMLElement, calculateVirtualisation: () => void] =>  {
-  let { listItemTag = 'li', endOfListBufferSize = 10 } = options;
+type VirtualisationResult = [HTMLElement, (() => void)];
 
-  const listItems = element.querySelectorAll(listItemTag);
-  if (listItems.length === 0) return [element, () => {}];
+export const virtualise = (parentElement: HTMLElement, childElements: HTMLElement[], endOfListBufferSize = 10): VirtualisationResult =>  {
+  const emptyResult: VirtualisationResult = [parentElement, () => {}];
+  const [isValid, mustThrow, err] = isValidVirtualisationInput(parentElement, childElements);
+  if (!isValid) {
+    if (mustThrow) throw Error(err);
 
-  const firstListElement = element.querySelector(listItemTag);
-  if (!firstListElement) throw Error('row hight could not be determined.');
-  const rowHeight = parseFloat(firstListElement.style.height);
+    console.log(err);
+    return emptyResult;
+  }
+
+  const parentHeight = parseFloat(parentElement.style.height);
+  const rowHeight = parseFloat(childElements[0].style.height);
+  const numberOfVisibleItems = Math.ceil(parentHeight / rowHeight) + endOfListBufferSize;
+  childElements.forEach((e, i) => { e.style.display = i <= numberOfVisibleItems ? CssDisplay.BLOCK : CssDisplay.NONE });
 
   const heightSetter = document.createElement('div');
   heightSetter.style.background = 'transparent';
-  heightSetter.style.height = `${listItems.length * rowHeight}px`;
+  heightSetter.style.height = `${childElements.length * rowHeight}px`;
+  
+  parentElement.appendChild(heightSetter);
+  parentElement.append(...childElements);
 
-  element.appendChild(heightSetter);
+  const calcOptions: VirtualisationOptions = { 
+    rowHeight: rowHeight, 
+    listItemTag: childElements[0].tagName.toLocaleLowerCase() as HtmlElementTagType, 
+    endOfListBufferSize: endOfListBufferSize 
+  };
 
-}
+  let isThrottling = false;
+  parentElement.addEventListener('scroll', function(this: HTMLElement, ev: Event) {
+    if (isThrottling) return;
+
+    isThrottling = true;
+    setTimeout(() => {
+      calculateListVirtualisation(parentElement, calcOptions);
+      isThrottling = false;
+    }, 0);
+  });
+
+  return [parentElement, () => calculateListVirtualisation(parentElement, calcOptions)];
+};
