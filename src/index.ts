@@ -1,6 +1,6 @@
 import { html, build, appendGlobalStyles, createCssSelector, textInput } from './utils/dom-helper.js';
 import { getContexts, Context } from './api/context-api.js';
-import { calculateListVirtualisation } from './utils/list-virtualiser.js';
+import { virtualise } from './utils/list-virtualiser.js';
 
 const DATA_ID_PROPERTY = 'data-id';
 const DEBOUNCE_INTERVAL = 300;
@@ -28,11 +28,6 @@ const UL_STYLE = `
   height: 800px; 
   overflow-y: auto;
   position: relative;
-`;
-
-const HEIGHT_SETTER_STYLE = `
-  background-color: transparent;
-  height: ${DATA_SIZE * ROW_HEIGHT}px;
 `;
 
 const LIST_ITEM_STYLE = `
@@ -96,30 +91,6 @@ const filter = (value: string, ul: HTMLElement): void => {
   });
 };
 
-let isThrottling = false;
-const onScroll = (element: HTMLUListElement): void => {
-  if (isThrottling) return;
-
-  isThrottling = true;
-  setTimeout(() => {
-    calculateListVirtualisation({listContainerElement: element, rowHeight: ROW_HEIGHT});
-    isThrottling = false;
-  }, 0);
-};
-
-const heightSetterElement = build('div', { style: HEIGHT_SETTER_STYLE });
-const ul = build<HTMLUListElement>('ul', { style: UL_STYLE, eventType: 'scroll', eventCallback: onScroll });
-
-calculateListVirtualisation({listContainerElement: ul, rowHeight: ROW_HEIGHT});
-
-let timeoutId: number = 0;
-const filterTextChanged = (element: HTMLInputElement) => {
-  if (timeoutId) clearTimeout(timeoutId);
-  timeoutId = setTimeout(() => filter(element.value, ul), DEBOUNCE_INTERVAL);
-};
-
-const input = textInput(filterTextChanged, '', INPUT_STYLE);
-
 const buildItem = (context: Context): HTMLElement =>
   html(
     build(LIST_ITEM_TAG, { attributes: { [DATA_ID_PROPERTY]: context.id.toString() }}),
@@ -131,9 +102,17 @@ const buildItem = (context: Context): HTMLElement =>
     )
   );
 
-const createList = (contexts: Context[]): HTMLElement =>
-  html(ul, heightSetterElement, ...data.map((d) => buildItem(d)));
+const [ul, calculateListVirtualisation] = virtualise(build('ul', { style: UL_STYLE }), data.map((d) => buildItem(d)));
 
-html(document.querySelector<HTMLElement>('#app')!, input, createList(data));
+
+let timeoutId: number = 0;
+const filterTextChanged = (element: HTMLInputElement) => {
+  if (timeoutId) clearTimeout(timeoutId);
+  timeoutId = setTimeout(() => filter(element.value, ul), DEBOUNCE_INTERVAL);
+};
+
+const input = textInput(filterTextChanged, '', INPUT_STYLE);
+
+html(document.querySelector<HTMLElement>('#app')!, input, ul);
 
 input.focus();

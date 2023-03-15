@@ -30,11 +30,11 @@ const calculateListVirtualisation = (element: HTMLElement, options: Virtualisati
     for (let i = 0; i < listItems.length; i++) {
       const listItemElement = listItems[i];
       if (i >= indexStart && i <= indexEnd) {
-        listItemElement.style.display = 'block';
+        listItemElement.style.display = CssDisplay.BLOCK;
         listItemElement.style.top = `${currentIndex * rowHeight}px`;
         currentIndex++;
-      } else if (listItemElement.style.display !== 'none') {
-        listItemElement.style.display = 'none';
+      } else if (listItemElement.style.display !== CssDisplay.NONE) {
+        listItemElement.style.display = CssDisplay.NONE;
       }
     }
   });
@@ -49,23 +49,19 @@ const isValidVirtualisationInput = (
   const invalidAndThrow = (err: string) => [false, true, err] as const;
 
   if (!parentElement) return invalidAndThrow('Parent element is null.');
-  const parentHeight = parentElement.style.height;
-  if (!parentHeight || parseFloat(parentHeight) <= 0)
-    return invalidAndThrow('Parent element style must have height provided.');
+  const parentHeight = parentElement.getBoundingClientRect().height;
+  if (parentHeight <= 0)
+    return invalidAndThrow('Parent element must have height greater than zero.');
 
   if (!childElements) return invalidAndThrow('Child elements array is null.');
   if (childElements.length === 0) return invalid('No child elements are provided.');
-  const childHeight = childElements[0].style.height;
-  if (!childHeight || parseFloat(childHeight) <= 0)
-    return invalidAndThrow('Child elements style must have height provided.');
+  const childHeight = childElements[0].getBoundingClientRect().height
+  console.log(childElements[0]);
+  if (childHeight <= 0)
+    return invalidAndThrow('Child elements must have height greater than zero.');
 
   return valid;
 };
-
-//TODO:
-// 1. completely move all list elements here
-// 2. build list based on data source in main vitualise() function
-// 3. move isThrottling in the function body below
 
 type VirtualisationResult = [HTMLElement, () => void];
 
@@ -74,17 +70,17 @@ export const virtualise = (
   childElements: HTMLElement[],
   endOfListBufferSize = 10
 ): VirtualisationResult => {
-  const emptyResult: VirtualisationResult = [parentElement, () => {}];
+  console.log(parentElement.style);
   const [isValid, mustThrow, err] = isValidVirtualisationInput(parentElement, childElements);
   if (!isValid) {
     if (mustThrow) throw Error(err);
 
     console.log(err);
-    return emptyResult;
+    return [parentElement, () => {}];
   }
 
-  const parentHeight = parseFloat(parentElement.style.height);
-  const rowHeight = parseFloat(childElements[0].style.height);
+  const parentHeight = parentElement.getBoundingClientRect().height;
+  const rowHeight = childElements[0].getBoundingClientRect().height;
   const numberOfVisibleItems = Math.ceil(parentHeight / rowHeight) + endOfListBufferSize;
   childElements.forEach((e, i) => {
     e.style.display = i <= numberOfVisibleItems ? CssDisplay.BLOCK : CssDisplay.NONE;
