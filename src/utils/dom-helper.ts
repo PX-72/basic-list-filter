@@ -71,7 +71,7 @@ export const textInput = (
   inputChangeCallback: (e: HTMLInputElement) => void,
   initValue: string = '',
   style: string = '',
-  classNames = []
+  classNames: string[] = []
 ): HTMLInputElement =>
   build<HTMLInputElement>('input', {
     attributes: { type: 'text', value: initValue },
