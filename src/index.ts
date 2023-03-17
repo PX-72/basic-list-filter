@@ -98,10 +98,11 @@ const buildItem = (context: Context): HTMLElement =>
 
 const ul = build('ul', { classNames: [LIST_CONTAINER_CSS] });
 const items = data.map((d) => buildItem(d));
-const [virtualisedListEelement, calculateListVirtualisation] = virtualise({
+const [virtualisedListEelement, calculateListVirtualisation] = virtualise<Context>({
   containerElement: ul,
   containerHeight: 800,
-  listItemElements: items,
+  dataList: data,
+  itemBuilder: buildItem,
   listItemHeight: 30
 });
 

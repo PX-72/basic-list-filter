@@ -6,6 +6,19 @@ export type VirtualisationOptions = {
   endOfListBufferSize: number;
 };
 
+export type VirtialistionInput<T> = {
+  containerElement: HTMLElement;
+  containerHeight: number;
+  dataList: T[];
+  itemBuilder: (item: T) => HTMLElement;
+  listItemHeight: number;
+  endOfListBufferSize?: number;
+};
+
+export type VirtualisationResult = [HTMLElement, () => void];
+
+type RowBuilder<T> = Pick<VirtialistionInput<T>, 'dataList' | 'itemBuilder'>;
+
 enum CssDisplay {
   NONE = 'none',
   BLOCK = 'block',
@@ -41,12 +54,12 @@ const calculateListVirtualisation = (element: HTMLElement, options: Virtualisati
 };
 
 const isValidVirtualisationInput = (inputOptions: VirtialistionInput): Readonly<[boolean, boolean, string]> => {
-  const { containerElement, containerHeight: containerHight, listItemElements, listItemHeight } = inputOptions;
+  const { containerElement, containerHeight, listItemElements, listItemHeight } = inputOptions;
   const valid = [true, false, ''] as const;
   const invalid = (err: string) => [false, false, err] as const;
   const invalidAndThrow = (err: string) => [false, true, err] as const;
 
-  if (containerHight <= 0) return invalidAndThrow('Container hight must be greater than zero.');
+  if (containerHeight <= 0) return invalidAndThrow('Container hight must be greater than zero.');
   if (listItemHeight <= 0) return invalidAndThrow('List item height must be greater than zero.');
 
   if (!containerElement) return invalidAndThrow('Parent element is null.');
@@ -62,36 +75,41 @@ const isValidVirtualisationInput = (inputOptions: VirtialistionInput): Readonly<
 };
 
 const initialiseContainer = (containerElement: HTMLElement, containerHight: number): void => {
-    containerElement.style.height = `${containerHight}px`;
-    containerElement.style.overflowY = 'auto';
-    containerElement.style.position = 'relative';
+  containerElement.style.height = `${containerHight}px`;
+  containerElement.style.overflowY = 'auto';
+  containerElement.style.position = 'relative';
 };
 
-const initialiseListItemElements = (listItemElements: HTMLElement[], listItemHeight: number): void => {
-    listItemElements.forEach((item: HTMLElement) => { 
-      item.style.position = 'absolute';
-      item.style.left = '0px';
-      item.style.right = '0px';
-      item.style.height = `${listItemHeight}px`;
-    });
+const buildListItems = <T>(
+  rowBuilder: RowBuilder<T>,
+  firstIndex: number,
+  lastIndex: number,
+  listItemHeight: number
+): HTMLElement[] => {
+  const result: HTMLElement[] = [];
+  for (let i = firstIndex; i < lastIndex; i++) {
+    const item = rowBuilder.itemBuilder(rowBuilder.dataList[i]);
+    item.style.position = 'absolute';
+    item.style.left = '0px';
+    item.style.right = '0px';
+    item.style.top = `${i * listItemHeight}px`;
+    item.style.height = `${listItemHeight}px`;
+  }
+
+  return result;
 };
 
-
-export type VirtialistionInput = {
-  containerElement: HTMLElement;
-  containerHeight: number;
-  listItemElements: HTMLElement[];
-  listItemHeight: number;
-  endOfListBufferSize?: number;
-};
-
-export type VirtualisationResult = [HTMLElement, () => void];
-
-export const virtualise = (inputOptions: VirtialistionInput): VirtualisationResult => {
-  const { containerElement, containerHeight, listItemElements, listItemHeight, endOfListBufferSize = 10 } = inputOptions;
+export const virtualise = <T>(inputOptions: VirtialistionInput<T>): VirtualisationResult => {
+  const {
+    containerElement,
+    containerHeight,
+    dataList,
+    itemBuilder,
+    listItemHeight,
+    endOfListBufferSize = 10
+  } = inputOptions;
 
   initialiseContainer(containerElement, containerHeight);
-  initialiseListItemElements(listItemElements, listItemHeight);
 
   const [isValid, mustThrow, err] = isValidVirtualisationInput(inputOptions);
   if (!isValid) {
@@ -101,6 +119,8 @@ export const virtualise = (inputOptions: VirtialistionInput): VirtualisationResu
     return [containerElement, () => {}];
   }
 
+  // todo: fix:
+  // 
   const numberOfVisibleItems = Math.ceil(containerHeight / listItemHeight) + endOfListBufferSize;
   listItemElements.forEach((e, i) => {
     e.style.display = i <= numberOfVisibleItems ? CssDisplay.BLOCK : CssDisplay.NONE;
