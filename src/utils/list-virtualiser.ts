@@ -1,23 +1,30 @@
-type HtmlElementTagType = keyof HTMLElementTagNameMap;
+type DataSetAttribute = {
+  inputKey: string,
+  htmlKey: string
+};
 
-export type VirtualisationOptions = {
-  rowHeight: number;
-  listItemTag: HtmlElementTagType;
-  endOfListBufferSize: number;
+const HEIGHT_SETTER_MARKER: DataSetAttribute = {
+  inputKey: 'heightSetterMarker',
+  htmlKey: 'data-height-setter-marker'
+};
+
+const ROW_ELEMENT_MARKER: DataSetAttribute = {
+  inputKey: 'rowElementMarker',
+  htmlKey: 'data-row-element-marker'
 };
 
 export type VirtialistionInput<T> = {
   containerElement: HTMLElement;
   containerHeight: number;
   dataList: T[];
-  itemBuilder: (item: T) => HTMLElement;
-  listItemHeight: number;
+  rowBuilder: (item: T) => HTMLElement;
+  rowHeight: number;
   endOfListBufferSize?: number;
 };
 
 export type VirtualisationResult = [HTMLElement, () => void];
 
-type RowBuilder<T> = Pick<VirtialistionInput<T>, 'dataList' | 'itemBuilder'>;
+type RowBuilder<T> = Pick<VirtialistionInput<T>, 'dataList' | 'rowBuilder'>;
 
 enum CssDisplay {
   NONE = 'none',
@@ -25,119 +32,78 @@ enum CssDisplay {
   INLINE_BLOCK = 'inline-block'
 }
 
-const calculateListVirtualisation = (element: HTMLElement, options: VirtualisationOptions): void => {
-  let { rowHeight, listItemTag, endOfListBufferSize } = options;
-
-  requestAnimationFrame(() => {
-    const listItems = element.querySelectorAll(listItemTag);
-    if (listItems.length === 0) return;
-
-    const indexStart = Math.floor(element.scrollTop / rowHeight);
-    const indexEnd = Math.min(
-      Math.ceil((element.scrollTop + parseFloat(element.style.height)) / rowHeight - 1) + endOfListBufferSize,
-      listItems.length - 1
-    );
-
-    let currentIndex = indexStart;
-
-    for (let i = 0; i < listItems.length; i++) {
-      const listItemElement = listItems[i];
-      if (i >= indexStart && i <= indexEnd) {
-        listItemElement.style.display = CssDisplay.BLOCK;
-        listItemElement.style.top = `${currentIndex * rowHeight}px`;
-        currentIndex++;
-      } else if (listItemElement.style.display !== CssDisplay.NONE) {
-        listItemElement.style.display = CssDisplay.NONE;
-      }
-    }
-  });
-};
-
-const isValidVirtualisationInput = (inputOptions: VirtialistionInput): Readonly<[boolean, boolean, string]> => {
-  const { containerElement, containerHeight, listItemElements, listItemHeight } = inputOptions;
-  const valid = [true, false, ''] as const;
-  const invalid = (err: string) => [false, false, err] as const;
-  const invalidAndThrow = (err: string) => [false, true, err] as const;
-
-  if (containerHeight <= 0) return invalidAndThrow('Container hight must be greater than zero.');
-  if (listItemHeight <= 0) return invalidAndThrow('List item height must be greater than zero.');
-
-  if (!containerElement) return invalidAndThrow('Parent element is null.');
-  const parentHeight = parseFloat(containerElement.style.height);
-  if (parentHeight <= 0) return invalidAndThrow('Parent element must have height greater than zero.');
-
-  if (!listItemElements) return invalidAndThrow('Child elements array is null.');
-  if (listItemElements.length === 0) return invalid('No child elements are provided.');
-  const childHeight = parseFloat(listItemElements[0].style.height);
-  if (childHeight <= 0) return invalidAndThrow('Child elements must have height greater than zero.');
-
-  return valid;
-};
-
-const initialiseContainer = (containerElement: HTMLElement, containerHight: number): void => {
-  containerElement.style.height = `${containerHight}px`;
-  containerElement.style.overflowY = 'auto';
-  containerElement.style.position = 'relative';
-};
-
 const buildListItems = <T>(
   rowBuilder: RowBuilder<T>,
   firstIndex: number,
   lastIndex: number,
-  listItemHeight: number
+  rowHeight: number
 ): HTMLElement[] => {
   const result: HTMLElement[] = [];
   for (let i = firstIndex; i < lastIndex; i++) {
-    const item = rowBuilder.itemBuilder(rowBuilder.dataList[i]);
+    const item = rowBuilder.rowBuilder(rowBuilder.dataList[i]);
     item.style.position = 'absolute';
     item.style.left = '0px';
     item.style.right = '0px';
-    item.style.top = `${i * listItemHeight}px`;
-    item.style.height = `${listItemHeight}px`;
+    item.style.top = `${i * rowHeight}px`;
+    item.style.height = `${rowHeight}px`;
+    item.dataset[ROW_ELEMENT_MARKER.inputKey] = 'true';
+    result.push(item);
   }
 
   return result;
 };
 
-export const virtualise = <T>(inputOptions: VirtialistionInput<T>): VirtualisationResult => {
-  const {
-    containerElement,
-    containerHeight,
-    dataList,
-    itemBuilder,
-    listItemHeight,
-    endOfListBufferSize = 10
-  } = inputOptions;
+const calculateListVirtualisation = <T>(
+  element: HTMLElement,
+  options: Omit<VirtialistionInput<T>, 'containerElement' | 'containerHeight'>
+): void => {
+  let { dataList, rowBuilder, rowHeight, endOfListBufferSize = 0 } = options;
 
-  initialiseContainer(containerElement, containerHeight);
+  requestAnimationFrame(() => {
+    const indexStart = Math.floor(element.scrollTop / rowHeight);
+    const indexEnd = Math.min(
+      Math.ceil((element.scrollTop + parseFloat(element.style.height)) / rowHeight - 1) + endOfListBufferSize,
+      dataList.length
+    );
 
-  const [isValid, mustThrow, err] = isValidVirtualisationInput(inputOptions);
-  if (!isValid) {
-    if (mustThrow) throw Error(err);
+    const currentListItems = document.querySelectorAll(`[${ROW_ELEMENT_MARKER.htmlKey}]`);
+    currentListItems.forEach(el => el.remove());
 
-    console.log(err);
-    return [containerElement, () => {}];
-  }
+    let currentIndex = indexStart;
 
-  // todo: fix:
-  // 
-  const numberOfVisibleItems = Math.ceil(containerHeight / listItemHeight) + endOfListBufferSize;
-  listItemElements.forEach((e, i) => {
-    e.style.display = i <= numberOfVisibleItems ? CssDisplay.BLOCK : CssDisplay.NONE;
+    const newRowItems = buildListItems({ dataList, rowBuilder }, indexStart, indexEnd, rowHeight);
+    newRowItems.forEach(el => element.appendChild(el));
   });
+};
 
+const createHeightSetter = (rowHeight: number, dataListLength: number): HTMLElement => {
   const heightSetter = document.createElement('div');
   heightSetter.style.background = 'transparent';
-  heightSetter.style.height = `${listItemElements.length * listItemHeight}px`;
+  heightSetter.style.height = `${dataListLength * rowHeight}px`;
+  heightSetter.dataset[HEIGHT_SETTER_MARKER.inputKey] = 'true';
+  return heightSetter;
+};
 
-  containerElement.appendChild(heightSetter);
-  containerElement.append(...listItemElements);
+const initialiseContainer = (
+  containerElement: HTMLElement,
+  containerHight: number,
+  rowHeight: number,
+  dataListLength: number
+): void => {
+  containerElement.style.height = `${containerHight}px`;
+  containerElement.style.overflowY = 'auto';
+  containerElement.style.position = 'relative';
 
-  const calcOptions: VirtualisationOptions = {
-    rowHeight: listItemHeight,
-    listItemTag: listItemElements[0].tagName.toLocaleLowerCase() as HtmlElementTagType,
-    endOfListBufferSize: endOfListBufferSize
-  };
+  containerElement.appendChild(createHeightSetter(rowHeight, dataListLength));
+};
+
+export const virtualise = <T>(inputOptions: VirtialistionInput<T>): VirtualisationResult => {
+  const { containerElement, containerHeight, dataList, rowBuilder, rowHeight, endOfListBufferSize = 10 } = inputOptions;
+  const calcInput = { dataList, rowBuilder, rowHeight, endOfListBufferSize };
+
+  initialiseContainer(containerElement, containerHeight, rowHeight, dataList.length);
+
+  const numberOfVisibleItems = Math.ceil(containerHeight / rowHeight) + endOfListBufferSize;
 
   let isThrottling = false;
   containerElement.addEventListener('scroll', function (this: HTMLElement, ev: Event) {
@@ -145,12 +111,12 @@ export const virtualise = <T>(inputOptions: VirtialistionInput<T>): Virtualisati
 
     isThrottling = true;
     setTimeout(() => {
-      calculateListVirtualisation(containerElement, calcOptions);
+      calculateListVirtualisation<T>(containerElement, calcInput);
       isThrottling = false;
     }, 0);
   });
 
-  calculateListVirtualisation(containerElement, calcOptions);
+  calculateListVirtualisation<T>(containerElement, calcInput);
 
-  return [containerElement, () => calculateListVirtualisation(containerElement, calcOptions)];
+  return [containerElement, () => calculateListVirtualisation<T>(containerElement, calcInput)];
 };

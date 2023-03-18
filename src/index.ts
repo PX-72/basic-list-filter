@@ -4,7 +4,7 @@ import { virtualise } from './utils/list-virtualiser.js';
 
 const DATA_ID_PROPERTY = 'data-id';
 const DEBOUNCE_INTERVAL = 300;
-const DATA_SIZE = 100_000;
+const DATA_SIZE = 1_000_000;
 
 const FILTER_INPUT_BOX_CSS = '.filter-box';
 const FILTER_INPUT_STYLE = `
@@ -47,11 +47,11 @@ const ITEM = `
 const ID_ITEM_CSS = '.id-item';
 const ID_ITEM = `
   ${ITEM}
-  width: 30px;
+  width: 42px;
   display: inline-block;
 `;
 
-const data: Context[] = await getContexts(DATA_SIZE);
+const data: Context[] = await getContexts(DATA_SIZE, 0);
 
 appendGlobalStyles(
   createCssSelector(FILTER_INPUT_BOX_CSS, FILTER_INPUT_STYLE),
@@ -102,8 +102,8 @@ const [virtualisedListEelement, calculateListVirtualisation] = virtualise<Contex
   containerElement: ul,
   containerHeight: 800,
   dataList: data,
-  itemBuilder: buildItem,
-  listItemHeight: 30
+  rowBuilder: buildItem,
+  rowHeight: 30
 });
 
 let timeoutId: number = 0;
