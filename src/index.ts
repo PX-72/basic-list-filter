@@ -4,7 +4,7 @@ import { virtualise } from './utils/list-virtualiser.js';
 
 const DATA_ID_PROPERTY = 'data-id';
 const DEBOUNCE_INTERVAL = 300;
-const DATA_SIZE = 1_000_000;
+const DATA_SIZE = 200_000;
 
 const FILTER_INPUT_BOX_CSS = '.filter-box';
 const FILTER_INPUT_STYLE = `
