@@ -60,10 +60,9 @@ const calculateListVirtualisation = <T>(options: VirtialistionInput<T>): void =>
 
   requestAnimationFrame(() => {
 
-    //const scrollTop  = (containerElement.scrollTop / (dataList.length * rowHeight)) * 15_000_000;
-
-    //const scrollTop  = interpolate(0,  dataList.length * rowHeight, 0, 15_000_000,  containerElement.scrollTop);
-    const scrollTop = containerElement.scrollTop; 
+    const scrollTopNonInterpolated  = (containerElement.scrollTop / (dataList.length * rowHeight)) * 15_000_000;
+    const scrollTop  = interpolate(0,  dataList.length * rowHeight, 0, 15_000_000,  containerElement.scrollTop);
+    //const scrollTop = containerElement.scrollTop; 
     console.log(`calculated scroll top: ${scrollTop.toLocaleString()}; real scrollTop: ${containerElement.scrollTop.toLocaleString()}`);
     const indexStart = Math.floor(scrollTop / rowHeight);
     const indexEnd = Math.min(
@@ -82,7 +81,7 @@ const calculateListVirtualisation = <T>(options: VirtialistionInput<T>): void =>
 };
 
 const createHeightSetters = (rowHeight: number, dataListLength: number): HTMLElement[] => {
-  const maxHeight = 1_000_000;
+  const maxHeight = 10_000_000;
   const height = dataListLength * rowHeight;
   console.log(`height: ${height.toLocaleString()}; maxHeight: ${maxHeight.toLocaleString()}`);
   const heightArray: number[] = [];
@@ -91,10 +90,7 @@ const createHeightSetters = (rowHeight: number, dataListLength: number): HTMLEle
   } else {
     const maxHeightCount = Math.trunc(height / maxHeight);
     console.log(`maxHeightCount: ${maxHeightCount.toLocaleString()}`);
-
-    //heightArray.push(...Array(maxHeightCount).fill(maxHeight));
-
-    [...Array(maxHeightCount)].forEach(() => heightArray.push(maxHeight));
+    heightArray.push(...Array(maxHeightCount).fill(maxHeight));
     const remainderHeight = height - (maxHeightCount * maxHeight);
     console.log(`remainderHeight: ${remainderHeight.toLocaleString()}`);
     if (remainderHeight > 0) heightArray.push(remainderHeight);
