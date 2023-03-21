@@ -59,11 +59,10 @@ const calculateListVirtualisation = <T>(options: VirtialistionInput<T>): void =>
   let { containerElement, containerHeight, dataList, rowBuilder, rowHeight, endOfListBufferSize = 0 } = options;
 
   requestAnimationFrame(() => {
-
     const scrollTopNonInterpolated  = (containerElement.scrollTop / (dataList.length * rowHeight)) * 15_000_000;
     const scrollTop  = interpolate(0,  dataList.length * rowHeight, 0, 15_000_000,  containerElement.scrollTop);
     //const scrollTop = containerElement.scrollTop; 
-    console.log(`calculated scroll top: ${scrollTop.toLocaleString()}; real scrollTop: ${containerElement.scrollTop.toLocaleString()}`);
+    console.log(`calculated scroll top: ${scrollTop.toLocaleString()} T: ${scrollTopNonInterpolated.toLocaleString}; real scrollTop: ${containerElement.scrollTop.toLocaleString()}`);
     const indexStart = Math.floor(scrollTop / rowHeight);
     const indexEnd = Math.min(
       Math.ceil((scrollTop + containerHeight) / rowHeight - 1) + endOfListBufferSize,
@@ -81,7 +80,7 @@ const calculateListVirtualisation = <T>(options: VirtialistionInput<T>): void =>
 };
 
 const createHeightSetters = (rowHeight: number, dataListLength: number): HTMLElement[] => {
-  const maxHeight = 10_000_000;
+  const maxHeight = 15_000_000;
   const height = dataListLength * rowHeight;
   console.log(`height: ${height.toLocaleString()}; maxHeight: ${maxHeight.toLocaleString()}`);
   const heightArray: number[] = [];
@@ -89,21 +88,16 @@ const createHeightSetters = (rowHeight: number, dataListLength: number): HTMLEle
     heightArray.push(height);
   } else {
     const maxHeightCount = Math.trunc(height / maxHeight);
-    console.log(`maxHeightCount: ${maxHeightCount.toLocaleString()}`);
     heightArray.push(...Array(maxHeightCount).fill(maxHeight));
     const remainderHeight = height - (maxHeightCount * maxHeight);
-    console.log(`remainderHeight: ${remainderHeight.toLocaleString()}`);
     if (remainderHeight > 0) heightArray.push(remainderHeight);
   }
-
-  console.log('----------------------------------------------------------------');
   
   const result: HTMLElement[] = [];
   heightArray.forEach((h, i) => {
     const heightSetter = document.createElement('div');
     heightSetter.style.background = 'transparent';
     heightSetter.style.height = `${h}px`;
-    console.log(`DIV ${i}: ${h.toLocaleString()}`);
     heightSetter.dataset[HEIGHT_SETTER_MARKER.inputKey] = 'true';
     result.push(heightSetter);
   });
