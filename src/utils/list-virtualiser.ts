@@ -1,9 +1,11 @@
 import { interpolate } from './interpolation.js';
 
-type DataSetAttribute = {
+/* type DataSetAttribute = {
   inputKey: string,
   htmlKey: string
-};
+}; */
+
+type DataSetAttribute = Record<'inputKey' | 'htmlKey', string>;
 
 const HEIGHT_SETTER_MARKER: DataSetAttribute = {
   inputKey: 'heightSetterMarker',
