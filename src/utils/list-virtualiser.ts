@@ -1,10 +1,5 @@
 import { interpolate } from './interpolation.js';
 
-/* type DataSetAttribute = {
-  inputKey: string,
-  htmlKey: string
-}; */
-
 type DataSetAttribute = Record<'inputKey' | 'htmlKey', string>;
 
 const HEIGHT_SETTER_MARKER: DataSetAttribute = {
@@ -82,7 +77,7 @@ const calculateListVirtualisation = <T>(options: VirtialistionInput<T>): void =>
 };
 
 const createHeightSetters = (rowHeight: number, dataListLength: number): HTMLElement[] => {
-  const maxHeight = 15_000_000;
+  const maxHeight = 10_000_000;
   const height = dataListLength * rowHeight;
   console.log(`height: ${height.toLocaleString()}; maxHeight: ${maxHeight.toLocaleString()}`);
   const heightArray: number[] = [];
