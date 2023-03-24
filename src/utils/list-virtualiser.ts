@@ -1,4 +1,4 @@
-import { interpolate } from './interpolation.js';
+const MAX_HEIGHT = 15_000_000;
 
 type DataSetAttribute = Record<'inputKey' | 'htmlKey', string>;
 
@@ -12,38 +12,20 @@ const ROW_ELEMENT_MARKER: DataSetAttribute = {
   htmlKey: 'data-row-element-marker'
 };
 
-export type VirtialistionInput<T> = {
-  containerElement: HTMLElement;
-  containerHeight: number;
-  dataList: T[];
-  rowBuilder: (item: T) => HTMLElement;
-  rowHeight: number;
-  endOfListBufferSize?: number;
-};
-
-export type VirtualisationResult = [HTMLElement, () => void];
-
-type RowBuilder<T> = Pick<VirtialistionInput<T>, 'dataList' | 'rowBuilder'>;
-
-enum CssDisplay {
-  NONE = 'none',
-  BLOCK = 'block',
-  INLINE_BLOCK = 'inline-block'
-}
-
 const buildListItems = <T>(
+  data: T[],
   rowBuilder: RowBuilder<T>,
   firstIndex: number,
   lastIndex: number,
   rowHeight: number
 ): HTMLElement[] => {
   const result: HTMLElement[] = [];
-  for (let i = firstIndex; i < lastIndex; i++) {
-    const item = rowBuilder.rowBuilder(rowBuilder.dataList[i]);
+  for (let i = firstIndex; i <= lastIndex; i++) {
+    const item = rowBuilder(data[i]);
     item.style.position = 'absolute';
     item.style.left = '0px';
     item.style.right = '0px';
-    item.style.top = `${i * rowHeight}px`; 
+    item.style.top = `${i * rowHeight}px`;
     item.style.height = `${rowHeight}px`;
     item.dataset[ROW_ELEMENT_MARKER.inputKey] = 'true';
     result.push(item);
@@ -52,86 +34,72 @@ const buildListItems = <T>(
   return result;
 };
 
-const calculateListVirtualisation = <T>(options: VirtialistionInput<T>): void => {
-  let { containerElement, containerHeight, dataList, rowBuilder, rowHeight, endOfListBufferSize = 0 } = options;
+const calculateListVirtualisation = <T>(data: T[], options: VirtialistionInput<T>): void => {
+  let { containerElement, containerHeight, rowBuilder, rowHeight, endOfListBufferSize = 10 } = options;
 
   requestAnimationFrame(() => {
-    const scrollTopNonInterpolated  = (containerElement.scrollTop / (dataList.length * rowHeight)) * 15_000_000;
-    const scrollTop  = interpolate(0,  dataList.length * rowHeight, 0, 15_000_000,  containerElement.scrollTop);
-    //const scrollTop = containerElement.scrollTop; 
-    console.log(`calculated scroll top: ${scrollTop.toLocaleString()} T: ${scrollTopNonInterpolated.toLocaleString}; real scrollTop: ${containerElement.scrollTop.toLocaleString()}`);
+    const scrollTop = containerElement.scrollTop;
     const indexStart = Math.floor(scrollTop / rowHeight);
     const indexEnd = Math.min(
       Math.ceil((scrollTop + containerHeight) / rowHeight - 1) + endOfListBufferSize,
-      dataList.length
+      data.length - 1
     );
 
     const currentListItems = document.querySelectorAll(`[${ROW_ELEMENT_MARKER.htmlKey}]`);
-    currentListItems.forEach(el => el.remove());
+    currentListItems.forEach((el) => el.remove());
 
-    let currentIndex = indexStart;
-
-    const newRowItems = buildListItems({ dataList, rowBuilder }, indexStart, indexEnd, rowHeight);
-    newRowItems.forEach(el => containerElement.appendChild(el));
+    const newRowItems = buildListItems(data, rowBuilder, indexStart, indexEnd, rowHeight);
+    newRowItems.forEach((el) => containerElement.appendChild(el));
   });
 };
 
-const createHeightSetters = (rowHeight: number, dataListLength: number): HTMLElement[] => {
-  const maxHeight = 10_000_000;
-  const height = dataListLength * rowHeight;
-  console.log(`height: ${height.toLocaleString()}; maxHeight: ${maxHeight.toLocaleString()}`);
-  const heightArray: number[] = [];
-  if (height <= maxHeight) {
-    heightArray.push(height);
-  } else {
-    const maxHeightCount = Math.trunc(height / maxHeight);
-    heightArray.push(...Array(maxHeightCount).fill(maxHeight));
-    const remainderHeight = height - (maxHeightCount * maxHeight);
-    if (remainderHeight > 0) heightArray.push(remainderHeight);
-  }
-  
-  const result: HTMLElement[] = [];
-  heightArray.forEach((h, i) => {
-    const heightSetter = document.createElement('div');
-    heightSetter.style.background = 'transparent';
-    heightSetter.style.height = `${h}px`;
-    heightSetter.dataset[HEIGHT_SETTER_MARKER.inputKey] = 'true';
-    result.push(heightSetter);
-  });
-  
-  return result;
+type RowBuilder<T> = (item: T) => HTMLElement;
+
+export type VirtialistionInput<T> = {
+  containerElement: HTMLElement;
+  containerHeight: number;
+  rowBuilder: RowBuilder<T>;
+  rowHeight: number;
+  endOfListBufferSize?: number;
 };
 
-const initialiseContainer = (
-  containerElement: HTMLElement,
-  containerHight: number,
-  rowHeight: number,
-  dataListLength: number
-): void => {
-  containerElement.style.height = `${containerHight}px`;
+const createHeightSetter = (height: number) => {
+  const heightSetter = document.createElement('div');
+  heightSetter.style.background = 'transparent';
+  heightSetter.style.height = `${height}px`;
+  heightSetter.dataset[HEIGHT_SETTER_MARKER.inputKey] = 'true';
+  return heightSetter;
+}
+
+export const virtualise = <T>(inputOptions: VirtialistionInput<T>): [HTMLElement, (data: T[]) => void] => {
+  const { containerElement, containerHeight, rowHeight } = inputOptions;
+
+  const heightSetter = createHeightSetter(0);
+
+  containerElement.style.height = `${containerHeight}px`;
   containerElement.style.overflowY = 'auto';
   containerElement.style.position = 'relative';
+  containerElement.appendChild(heightSetter);
 
-  createHeightSetters(rowHeight, dataListLength).forEach(setter => containerElement.appendChild(setter));
-};
+  const load = (data: T[]) => {
+    heightSetter.style.height = `${data.length * rowHeight}px`;
 
-export const virtualise = <T>(inputOptions: VirtialistionInput<T>): VirtualisationResult => {
-  const { containerElement, containerHeight, dataList, rowHeight, endOfListBufferSize = 10 } = inputOptions;
+    let isThrottling = false;
+    function onScroll(this: HTMLElement, ev: Event) {
+      if (isThrottling) return;
+  
+      isThrottling = true;
+      setTimeout(() => {
+        calculateListVirtualisation<T>(data, inputOptions);
+        isThrottling = false;
+      }, 0);
+    }
 
-  initialiseContainer(containerElement, containerHeight, rowHeight, dataList.length);
+    containerElement.removeEventListener('scroll', onScroll);
+    containerElement.addEventListener('scroll', onScroll);
 
-  let isThrottling = false;
-  containerElement.addEventListener('scroll', function (this: HTMLElement, ev: Event) {
-    if (isThrottling) return;
+    calculateListVirtualisation<T>(data, inputOptions);
+  };
 
-    isThrottling = true;
-    setTimeout(() => {
-      calculateListVirtualisation<T>(inputOptions);
-      isThrottling = false;
-    }, 0);
-  });
-
-  calculateListVirtualisation<T>(inputOptions);
-
-  return [containerElement, () => calculateListVirtualisation<T>(inputOptions)];
+  return [containerElement, load];
 };

@@ -3,8 +3,8 @@ import { getContexts, Context } from './api/context-api.js';
 import { virtualise } from './utils/list-virtualiser.js';
 
 const DATA_ID_PROPERTY = 'data-id';
-const DEBOUNCE_INTERVAL = 300;
-const DATA_SIZE = 200_000;
+const DEBOUNCE_INTERVAL = 50;
+const DATA_SIZE = 500_000;
 
 const FILTER_INPUT_BOX_CSS = '.filter-box';
 const FILTER_INPUT_STYLE = `
@@ -62,29 +62,6 @@ appendGlobalStyles(
   createCssSelector(ID_ITEM_CSS, ID_ITEM)
 );
 
-const filter = (value: string, ul: HTMLElement): void => {
-  const mustShowAll = value === undefined || value === '' || value.trim().length === 0;
-  let matchedIds = new Set<string | null>();
-
-  if (!mustShowAll) {
-    matchedIds = new Set<string | null>(
-      data
-        .filter((context) => context.description.toLowerCase().includes(value.toLowerCase()))
-        .map((context) => context.id.toString())
-    );
-  }
-
-  requestAnimationFrame(() => {
-    for (const listItemElement of ul.querySelectorAll('li')) {
-      if (mustShowAll || matchedIds.has(listItemElement.getAttribute(DATA_ID_PROPERTY))) {
-        listItemElement.style.display = 'block';
-      } else {
-        listItemElement.style.display = 'none';
-      }
-    }
-  });
-};
-
 const buildItem = (context: Context): HTMLElement =>
   html(
     build('li', { classNames: [LIST_ITEM_CSS], attributes: { [DATA_ID_PROPERTY]: context.id.toString() } }),
@@ -97,23 +74,41 @@ const buildItem = (context: Context): HTMLElement =>
   );
 
 const ul = build('ul', { classNames: [LIST_CONTAINER_CSS] });
-const items = data.map((d) => buildItem(d));
-const [virtualisedListEelement, calculateListVirtualisation] = virtualise<Context>({
+const [virtualisedListEelement, load] = virtualise<Context>({
   containerElement: ul,
   containerHeight: 800,
-  dataList: data,
   rowBuilder: buildItem,
   rowHeight: 30
 });
 
+const getItemCount = (len: number | undefined) => {
+  const itemText = len === 1 ? 'item' : 'items';
+  const lenValue = len === undefined ? 0 : len;
+  return `${lenValue.toLocaleString()} ${itemText}`;
+};
+
+const itemCounter = build('span', { text: getItemCount(data?.length), style: 'color: white; margin-left: 10px; margin-top: 12px' });
+
 let timeoutId: number = 0;
 const filterTextChanged = (element: HTMLInputElement) => {
   if (timeoutId) clearTimeout(timeoutId);
-  timeoutId = setTimeout(() => filter(element.value, virtualisedListEelement), DEBOUNCE_INTERVAL);
+  timeoutId = setTimeout(() => {
+    const filteredData = data.filter((context) => context.description.toLowerCase().includes(element.value.toLowerCase()));
+    itemCounter.innerText = getItemCount(filteredData.length);
+    load(filteredData);
+  }, DEBOUNCE_INTERVAL);
 };
 
 const input = textInput(filterTextChanged, '', '', [FILTER_INPUT_BOX_CSS]);
 
-html(document.querySelector<HTMLElement>('#app')!, input, virtualisedListEelement);
+const inputControl = html(
+  build('div', { style: 'display: flex; align-items: center;' }),
+  input,
+  itemCounter
+);
+
+html(document.querySelector<HTMLElement>('#app')!, inputControl, virtualisedListEelement);
 
 input.focus();
+
+load(data);
