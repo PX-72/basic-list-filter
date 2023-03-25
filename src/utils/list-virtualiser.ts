@@ -1,5 +1,3 @@
-import { interpolate } from './interpolation.js';
-
 const MAX_HEIGHT = 15_000_000;
 
 type DataSetAttribute = Record<'inputKey' | 'htmlKey', string>;
@@ -37,33 +35,31 @@ const buildListItems = <T>(
   return result;
 };
 
-const calculateListVirtualisation = <T>(data: T[], options: VirtialistionInput<T>): void => {
+const calculateListVirtualisation = <T>(
+  data: T[],
+  requiresIndexInterpolation: boolean,
+  options: VirtialistionInput<T>
+): void => {
   let { containerElement, containerHeight, rowBuilder, rowHeight, endOfListBufferSize = 10 } = options;
 
   requestAnimationFrame(() => {
     const scrollTop = containerElement.scrollTop;
-    //const interpolatedScrollTop = interpolate(0, MAX_HEIGHT, 0, rowHeight * data.length, scrollTop);
-    
-    //const indexEnd = Math.ceil(Math.min(indexStart + (containerHeight / rowHeight), data.length - 1));
-    /* Math.min(
-      Math.ceil((scrollTop + containerHeight) / rowHeight - 1) + endOfListBufferSize,
-      data.length - 1
-    ); */
-
     const positionStartIndex = Math.ceil(scrollTop / rowHeight);
+
+    const startIndex = requiresIndexInterpolation
+      ? Math.ceil((positionStartIndex / Math.ceil(MAX_HEIGHT / rowHeight)) * data.length)
+      : positionStartIndex;
+
+    const i = requiresIndexInterpolation
+      ? Math.ceil(startIndex + containerHeight / rowHeight)
+      : Math.ceil((scrollTop + containerHeight) / rowHeight - 1);
+    const endIndex = Math.min(i, data.length - 1);
 
     const currentListItems = containerElement.querySelectorAll(`[${ROW_ELEMENT_MARKER.htmlKey}]`);
     currentListItems.forEach((el) => el.remove());
 
-    //const interpolatedTVal = Math.ceil((positionStartIndex / Math.ceil(MAX_HEIGHT / rowHeight)) * data.length);
-    //const t = interpolate(0, Math.ceil(MAX_HEIGHT / rowHeight), 0, data.length, positionStartIndex);
-    //const startIndex = Math.ceil(interpolate(0, Math.ceil(MAX_HEIGHT / rowHeight), 0, data.length, positionStartIndex));
-    const startIndex = Math.ceil((positionStartIndex / Math.ceil(MAX_HEIGHT / rowHeight)) * data.length);
-    const endIndex = Math.min(Math.floor((startIndex + (containerHeight / rowHeight))), data.length - 1);
     const newRowItems = buildListItems(data, rowBuilder, positionStartIndex, startIndex, endIndex, rowHeight);
     newRowItems.forEach((el) => containerElement.appendChild(el));
-
-    console.log(positionStartIndex, startIndex, endIndex, newRowItems.length);
   });
 };
 
@@ -85,7 +81,7 @@ const createHeightSetter = (height: number) => {
   heightSetter.style.height = getClampedCssHeight(height);
   heightSetter.dataset[HEIGHT_SETTER_MARKER.inputKey] = 'true';
   return heightSetter;
-}
+};
 
 export const virtualise = <T>(inputOptions: VirtialistionInput<T>): [HTMLElement, (data: T[]) => void] => {
   const { containerElement, containerHeight, rowHeight } = inputOptions;
@@ -98,15 +94,22 @@ export const virtualise = <T>(inputOptions: VirtialistionInput<T>): [HTMLElement
   containerElement.appendChild(heightSetter);
 
   const load = (data: T[]) => {
-    heightSetter.style.height = getClampedCssHeight(data.length * rowHeight);
+    const h = data.length * rowHeight;
+    const requiresIndexInterpolation = h > MAX_HEIGHT;
+
+    // todo: check why last elements are not showing after filter for large lists
+    // todo: check if height setter hight (data length) has changed
+    containerElement.scrollTop = 0;
+
+    heightSetter.style.height = getClampedCssHeight(h);
 
     let isThrottling = false;
     function onScroll(this: HTMLElement, ev: Event) {
       if (isThrottling) return;
-  
+
       isThrottling = true;
       setTimeout(() => {
-        calculateListVirtualisation<T>(data, inputOptions);
+        calculateListVirtualisation<T>(data, requiresIndexInterpolation, inputOptions);
         isThrottling = false;
       }, 0);
     }
@@ -114,7 +117,7 @@ export const virtualise = <T>(inputOptions: VirtialistionInput<T>): [HTMLElement
     containerElement.removeEventListener('scroll', onScroll);
     containerElement.addEventListener('scroll', onScroll);
 
-    calculateListVirtualisation<T>(data, inputOptions);
+    calculateListVirtualisation<T>(data, requiresIndexInterpolation, inputOptions);
   };
 
   return [containerElement, load];
