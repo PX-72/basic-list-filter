@@ -4,7 +4,7 @@ import { virtualise } from './utils/list-virtualiser.js';
 
 const DATA_ID_PROPERTY = 'data-id';
 const DEBOUNCE_INTERVAL = 50;
-const DATA_SIZE = 500_000;
+const DATA_SIZE = 1_700_000;
 
 const FILTER_INPUT_BOX_CSS = '.filter-box';
 const FILTER_INPUT_STYLE = `
@@ -68,7 +68,7 @@ const buildItem = (context: Context): HTMLElement =>
     html(
       build('div', { classNames: [ITEM_CONTAINER_CSS] }),
       build('span', { text: context.id.toString(), classNames: [ID_ITEM_CSS] }),
-      build('span', { text: context.volume.toString(), classNames: [ITEM_CSS] }),
+      /* build('span', { text: context.volume.toString(), classNames: [ITEM_CSS] }), */
       build('span', { text: context.description, classNames: [ITEM_CSS] })
     )
   );

@@ -1,3 +1,5 @@
+import { interpolate } from './interpolation.js';
+
 const MAX_HEIGHT = 15_000_000;
 
 type DataSetAttribute = Record<'inputKey' | 'htmlKey', string>;
@@ -15,17 +17,18 @@ const ROW_ELEMENT_MARKER: DataSetAttribute = {
 const buildListItems = <T>(
   data: T[],
   rowBuilder: RowBuilder<T>,
+  positionStartIndex: number,
   firstIndex: number,
   lastIndex: number,
   rowHeight: number
 ): HTMLElement[] => {
   const result: HTMLElement[] = [];
-  for (let i = firstIndex; i <= lastIndex; i++) {
+  for (let i = firstIndex, p = positionStartIndex; i <= lastIndex; i++, p++) {
     const item = rowBuilder(data[i]);
     item.style.position = 'absolute';
     item.style.left = '0px';
     item.style.right = '0px';
-    item.style.top = `${i * rowHeight}px`;
+    item.style.top = `${p * rowHeight}px`;
     item.style.height = `${rowHeight}px`;
     item.dataset[ROW_ELEMENT_MARKER.inputKey] = 'true';
     result.push(item);
@@ -39,17 +42,28 @@ const calculateListVirtualisation = <T>(data: T[], options: VirtialistionInput<T
 
   requestAnimationFrame(() => {
     const scrollTop = containerElement.scrollTop;
-    const indexStart = Math.floor(scrollTop / rowHeight);
-    const indexEnd = Math.min(
+    //const interpolatedScrollTop = interpolate(0, MAX_HEIGHT, 0, rowHeight * data.length, scrollTop);
+    
+    //const indexEnd = Math.ceil(Math.min(indexStart + (containerHeight / rowHeight), data.length - 1));
+    /* Math.min(
       Math.ceil((scrollTop + containerHeight) / rowHeight - 1) + endOfListBufferSize,
       data.length - 1
-    );
+    ); */
 
-    const currentListItems = document.querySelectorAll(`[${ROW_ELEMENT_MARKER.htmlKey}]`);
+    const positionStartIndex = Math.ceil(scrollTop / rowHeight);
+
+    const currentListItems = containerElement.querySelectorAll(`[${ROW_ELEMENT_MARKER.htmlKey}]`);
     currentListItems.forEach((el) => el.remove());
 
-    const newRowItems = buildListItems(data, rowBuilder, indexStart, indexEnd, rowHeight);
+    //const interpolatedTVal = Math.ceil((positionStartIndex / Math.ceil(MAX_HEIGHT / rowHeight)) * data.length);
+    //const t = interpolate(0, Math.ceil(MAX_HEIGHT / rowHeight), 0, data.length, positionStartIndex);
+    //const startIndex = Math.ceil(interpolate(0, Math.ceil(MAX_HEIGHT / rowHeight), 0, data.length, positionStartIndex));
+    const startIndex = Math.ceil((positionStartIndex / Math.ceil(MAX_HEIGHT / rowHeight)) * data.length);
+    const endIndex = Math.min(Math.floor((startIndex + (containerHeight / rowHeight))), data.length - 1);
+    const newRowItems = buildListItems(data, rowBuilder, positionStartIndex, startIndex, endIndex, rowHeight);
     newRowItems.forEach((el) => containerElement.appendChild(el));
+
+    console.log(positionStartIndex, startIndex, endIndex, newRowItems.length);
   });
 };
 
@@ -63,10 +77,12 @@ export type VirtialistionInput<T> = {
   endOfListBufferSize?: number;
 };
 
+const getClampedCssHeight = (height: number): string => `${Math.min(height, MAX_HEIGHT)}px`;
+
 const createHeightSetter = (height: number) => {
   const heightSetter = document.createElement('div');
   heightSetter.style.background = 'transparent';
-  heightSetter.style.height = `${height}px`;
+  heightSetter.style.height = getClampedCssHeight(height);
   heightSetter.dataset[HEIGHT_SETTER_MARKER.inputKey] = 'true';
   return heightSetter;
 }
@@ -82,7 +98,7 @@ export const virtualise = <T>(inputOptions: VirtialistionInput<T>): [HTMLElement
   containerElement.appendChild(heightSetter);
 
   const load = (data: T[]) => {
-    heightSetter.style.height = `${data.length * rowHeight}px`;
+    heightSetter.style.height = getClampedCssHeight(data.length * rowHeight);
 
     let isThrottling = false;
     function onScroll(this: HTMLElement, ev: Event) {
