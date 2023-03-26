@@ -47,8 +47,7 @@ const ITEM = `
 const ID_ITEM_CSS = '.id-item';
 const ID_ITEM = `
   ${ITEM}
-  width: 42px;
-  display: inline-block;
+  width: 60px;
 `;
 
 const data: Context[] = await getContexts(DATA_SIZE, 0);
@@ -62,11 +61,12 @@ appendGlobalStyles(
   createCssSelector(ID_ITEM_CSS, ID_ITEM)
 );
 
-const buildItem = (context: Context): HTMLElement =>
+const buildItem = (context: Context, index: number): HTMLElement =>
   html(
     build('li', { classNames: [LIST_ITEM_CSS], attributes: { [DATA_ID_PROPERTY]: context.id.toString() } }),
     html(
       build('div', { classNames: [ITEM_CONTAINER_CSS] }),
+      build('span', { text: index.toString(), classNames: [ID_ITEM_CSS] }),
       build('span', { text: context.id.toString(), classNames: [ID_ITEM_CSS] }),
       /* build('span', { text: context.volume.toString(), classNames: [ITEM_CSS] }), */
       build('span', { text: context.description, classNames: [ITEM_CSS] })
@@ -76,7 +76,7 @@ const buildItem = (context: Context): HTMLElement =>
 const ul = build('ul', { classNames: [LIST_CONTAINER_CSS] });
 const [virtualisedListEelement, load] = virtualise<Context>({
   containerElement: ul,
-  containerHeight: 800,
+  containerHeight: 810,
   rowBuilder: buildItem,
   rowHeight: 30
 });
@@ -87,7 +87,7 @@ const getItemCount = (len: number | undefined) => {
   return `${lenValue.toLocaleString()} ${itemText}`;
 };
 
-const itemCounter = build('span', { text: getItemCount(data?.length), style: 'color: white; margin-left: 10px; margin-top: 12px' });
+const itemCounter = build('span', { text: getItemCount(data?.length), style: 'margin-left: 10px; margin-top: 12px' });
 
 let timeoutId: number = 0;
 const filterTextChanged = (element: HTMLInputElement) => {
