@@ -1,5 +1,6 @@
 const MAX_HEIGHT = 15_000_000;
 
+type ScrollDirection = 'up' | 'down' | 'unknown';
 type DataSetAttribute = Record<'inputKey' | 'htmlKey', string>;
 
 const HEIGHT_SETTER_MARKER: DataSetAttribute = {
@@ -38,8 +39,9 @@ const buildListItems = <T>(
 const calculateListVirtualisation = <T>(
   data: T[],
   // true if scroll height is too high - it is to avoid browsers limiting scrolling
-  requiresIndexInterpolation: boolean, 
-  options: VirtialistionInput<T>
+  requiresIndexInterpolation: boolean,
+  options: VirtialistionInput<T>,
+  scrollDirection: ScrollDirection
 ): void => {
   let { containerElement, containerHeight, rowBuilder, rowHeight } = options;
 
@@ -59,10 +61,15 @@ const calculateListVirtualisation = <T>(
     );
 
     const currentListItems = containerElement.querySelectorAll(`[${ROW_ELEMENT_MARKER.htmlKey}]`);
-    currentListItems.forEach((el) => el.remove());
-
     const newRowItems = buildListItems(data, rowBuilder, positionStartIndex, startIndex, endIndex, rowHeight);
 
+    if (endIndex === data.length - 1 && scrollDirection === 'down') {
+      console.log('at the end');
+      // todo: fix it! last batch is not added
+      return;
+    }
+
+    currentListItems.forEach((el) => el.remove());
     newRowItems.forEach((el) => containerElement.appendChild(el));
   });
 };
@@ -104,7 +111,7 @@ export const virtualise = <T>(inputOptions: VirtialistionInput<T>): [HTMLElement
   containerElement.appendChild(heightSetter);
 
   const load = (data: T[]) => {
-    const requiresIndexInterpolation = (data.length * rowHeight) > MAX_HEIGHT;
+    const requiresIndexInterpolation = data.length * rowHeight > MAX_HEIGHT;
 
     containerElement.scrollTop = 0;
 
@@ -113,20 +120,24 @@ export const virtualise = <T>(inputOptions: VirtialistionInput<T>): [HTMLElement
     heightSetter.style.height = h;
 
     let isThrottling = false;
+    let previousScrollTop = 0;
     function onScroll(this: HTMLElement, ev: Event) {
       if (isThrottling) return;
 
       isThrottling = true;
       setTimeout(() => {
-        calculateListVirtualisation<T>(data, requiresIndexInterpolation, inputOptions);
+        const srollDirection: ScrollDirection = previousScrollTop < this.scrollTop ? 'down' : 'up';
+        calculateListVirtualisation<T>(data, requiresIndexInterpolation, inputOptions, srollDirection);
+        console.log(previousScrollTop, this.scrollTop, srollDirection);
+        previousScrollTop = this.scrollTop;
         isThrottling = false;
-      }, 0);
+      }, 50);
     }
 
     containerElement.removeEventListener('scroll', onScroll);
     containerElement.addEventListener('scroll', onScroll);
 
-    calculateListVirtualisation<T>(data, requiresIndexInterpolation, inputOptions);
+    calculateListVirtualisation<T>(data, requiresIndexInterpolation, inputOptions, 'unknown');
   };
 
   return [containerElement, load];
