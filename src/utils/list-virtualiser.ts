@@ -45,12 +45,13 @@ const calculateListVirtualisation = <T>(
 ): void => {
   let { containerElement, containerHeight, rowBuilder, rowHeight } = options;
 
+  //TODO: ROUNDING CAUSES PROBLEMS AFTER FILTERING!
   requestAnimationFrame(() => {
     const scrollTop = containerElement.scrollTop;
-    const positionStartIndex = Math.ceil(scrollTop / rowHeight);
+    const positionStartIndex = Math.floor(scrollTop / rowHeight);
 
     const startIndex = requiresIndexInterpolation
-      ? Math.ceil((positionStartIndex / Math.ceil(MAX_HEIGHT / rowHeight)) * data.length)
+      ? Math.floor((positionStartIndex / Math.floor(MAX_HEIGHT / rowHeight)) * data.length)
       : positionStartIndex;
 
     const endIndex = Math.min(
@@ -60,17 +61,24 @@ const calculateListVirtualisation = <T>(
       data.length - 1
     );
 
-    const currentListItems = containerElement.querySelectorAll(`[${ROW_ELEMENT_MARKER.htmlKey}]`);
+    const currentListItems = containerElement.querySelectorAll<HTMLElement>(`[${ROW_ELEMENT_MARKER.htmlKey}]`);
     const newRowItems = buildListItems(data, rowBuilder, positionStartIndex, startIndex, endIndex, rowHeight);
 
-    if (endIndex === data.length - 1 && scrollDirection === 'down') {
-      console.log('at the end');
-      // todo: fix it! last batch is not added
-      return;
-    }
+    if (requiresIndexInterpolation && endIndex === data.length - 1 && scrollDirection === 'down') {
+      if (newRowItems.length === 0) return;
 
-    currentListItems.forEach((el) => el.remove());
-    newRowItems.forEach((el) => containerElement.appendChild(el));
+      // TODO: FIX THIS UGLY HACK, (if possible)
+      for (let i = 0; i < currentListItems.length; i++) {
+        if(newRowItems[i] !== undefined) {
+          currentListItems[i].innerHTML = newRowItems[i].innerHTML;
+        } else {
+          currentListItems[i].style.visibility = 'hidden';
+        }
+      }
+    } else {
+      currentListItems.forEach((el) => el.remove());
+      newRowItems.forEach((el) => containerElement.appendChild(el));
+    }
   });
 };
 
@@ -128,10 +136,9 @@ export const virtualise = <T>(inputOptions: VirtialistionInput<T>): [HTMLElement
       setTimeout(() => {
         const srollDirection: ScrollDirection = previousScrollTop < this.scrollTop ? 'down' : 'up';
         calculateListVirtualisation<T>(data, requiresIndexInterpolation, inputOptions, srollDirection);
-        console.log(previousScrollTop, this.scrollTop, srollDirection);
         previousScrollTop = this.scrollTop;
         isThrottling = false;
-      }, 50);
+      }, 0);
     }
 
     containerElement.removeEventListener('scroll', onScroll);

@@ -3,7 +3,7 @@ import { getContexts, Context } from './api/context-api.js';
 import { virtualise } from './utils/list-virtualiser.js';
 
 const DATA_ID_PROPERTY = 'data-id';
-const DEBOUNCE_INTERVAL = 50;
+const DEBOUNCE_INTERVAL = 250;
 const DATA_SIZE = 8_500_000;
 
 const FILTER_INPUT_BOX_CSS = '.filter-box';
