@@ -48,6 +48,7 @@ const calculateListVirtualisation = <T>(
   //TODO: ROUNDING CAUSES PROBLEMS AFTER FILTERING!
   requestAnimationFrame(() => {
     const scrollTop = containerElement.scrollTop;
+    console.log(scrollTop);
     const positionStartIndex = Math.floor(scrollTop / rowHeight);
 
     const startIndex = requiresIndexInterpolation
@@ -56,7 +57,7 @@ const calculateListVirtualisation = <T>(
 
     const endIndex = Math.min(
       requiresIndexInterpolation
-        ? Math.ceil(startIndex + containerHeight / rowHeight)
+        ? Math.ceil(startIndex + (containerHeight / rowHeight))
         : Math.floor((scrollTop + containerHeight) / rowHeight - 1),
       data.length - 1
     );
@@ -65,6 +66,7 @@ const calculateListVirtualisation = <T>(
     const newRowItems = buildListItems(data, rowBuilder, positionStartIndex, startIndex, endIndex, rowHeight);
 
     if (requiresIndexInterpolation && endIndex === data.length - 1 && scrollDirection === 'down') {
+      //console.dir(newRowItems.at(-1));
       if (newRowItems.length === 0) return;
 
       // TODO: FIX THIS UGLY HACK, (if possible)
@@ -108,24 +110,34 @@ const createHeightSetter = () => {
   return heightSetter;
 };
 
+const removeHeightSetter = (element: HTMLElement) => {
+  const heightSetter = element.querySelector<HTMLElement>(`[${HEIGHT_SETTER_MARKER.htmlKey}]`)!;
+  if(heightSetter)
+  {
+    console.log('removed height setter');
+    element.removeChild(heightSetter);
+  }  
+};
+
 export const virtualise = <T>(inputOptions: VirtialistionInput<T>): [HTMLElement, (data: T[]) => void] => {
   const { containerElement, containerHeight, rowHeight } = inputOptions;
-
-  const heightSetter = createHeightSetter();
 
   containerElement.style.height = `${containerHeight}px`;
   containerElement.style.overflowY = 'auto';
   containerElement.style.position = 'relative';
-  containerElement.appendChild(heightSetter);
 
   const load = (data: T[]) => {
     const requiresIndexInterpolation = data.length * rowHeight > MAX_HEIGHT;
+    
+    const h = getHeightSetterCssHeight(data.length, rowHeight, containerHeight);
+    console.log(h, data.length);
+    
+    removeHeightSetter(containerElement);
+    const heightSetter = createHeightSetter();
+    heightSetter.style.height = h;
+    containerElement.appendChild(heightSetter);
 
     containerElement.scrollTop = 0;
-
-    const h = getHeightSetterCssHeight(data.length, rowHeight, containerHeight);
-    console.log(h);
-    heightSetter.style.height = h;
 
     let isThrottling = false;
     let previousScrollTop = 0;
@@ -138,7 +150,7 @@ export const virtualise = <T>(inputOptions: VirtialistionInput<T>): [HTMLElement
         calculateListVirtualisation<T>(data, requiresIndexInterpolation, inputOptions, srollDirection);
         previousScrollTop = this.scrollTop;
         isThrottling = false;
-      }, 0);
+      }, 2);
     }
 
     containerElement.removeEventListener('scroll', onScroll);
