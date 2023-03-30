@@ -69,7 +69,7 @@ const calculateListVirtualisation = <T>(
       //console.dir(newRowItems.at(-1));
       if (newRowItems.length === 0) return;
 
-      // TODO: FIX THIS UGLY HACK, (if possible)
+      // TODO: FIX THIS UGLY HACK
       for (let i = 0; i < currentListItems.length; i++) {
         if(newRowItems[i] !== undefined) {
           currentListItems[i].innerHTML = newRowItems[i].innerHTML;
