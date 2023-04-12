@@ -4,7 +4,7 @@ import { virtualise } from './utils/list-virtualiser.js';
 
 const DATA_ID_PROPERTY = 'data-id';
 const DEBOUNCE_INTERVAL = 250;
-const DATA_SIZE = 8400_000;
+const DATA_SIZE = 12_400_000;
 
 const FILTER_INPUT_BOX_CSS = '.filter-box';
 const FILTER_INPUT_STYLE = `
@@ -74,7 +74,7 @@ const buildItem = (context: Context, index: number): HTMLElement =>
   );
 
 const ul = build('ul', { classNames: [LIST_CONTAINER_CSS] });
-const [virtualisedListEelement, load] = virtualise<Context>({
+const [virtualisedListElement, load] = virtualise<Context>({
   containerElement: ul,
   containerHeight: 810,
   rowBuilder: buildItem,
@@ -107,7 +107,7 @@ const inputControl = html(
   itemCounter
 );
 
-html(document.querySelector<HTMLElement>('#app')!, inputControl, virtualisedListEelement);
+html(document.querySelector<HTMLElement>('#app')!, inputControl, virtualisedListElement);
 
 input.focus();
 
